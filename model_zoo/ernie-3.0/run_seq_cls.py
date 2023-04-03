@@ -14,12 +14,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from functools import partial
 
 import numpy as np
 import paddle
 import paddle.nn as nn
+from paddle.jit import to_static
 from paddle.metric import Accuracy
 from utils import DataArguments, ModelArguments, load_config, seq_convert_example
 
@@ -81,6 +83,15 @@ def main():
     model = ErnieForSequenceClassification.from_pretrained(model_args.model_name_or_path, num_classes=num_classes)
     tokenizer = ErnieTokenizer.from_pretrained(model_args.model_name_or_path)
     criterion = nn.loss.CrossEntropyLoss() if data_args.label_list else nn.loss.MSELoss()
+
+    logger.info("start to_static")
+    specs = [
+        paddle.static.InputSpec(shape=[None, None], dtype="int64"),  # input_ids
+        paddle.static.InputSpec(shape=[None, None], dtype="int64"),  # segment_ids
+    ]
+    model = to_static(model, input_spec=specs)
+    print(model)
+    logger.info("end to_static")
 
     # Define dataset pre-process function
     trans_fn = partial(
@@ -176,4 +187,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
     main()
